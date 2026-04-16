@@ -1,13 +1,5 @@
-import React, { useMemo, useState } from "react";
-import {
-  FaBrain,
-  FaDroplet,
-  FaGlassWater,
-  FaHeartPulse,
-  FaMoon,
-  FaPersonWalking,
-  FaWind
-} from "react-icons/fa6";
+import React, { useMemo } from "react";
+import { FaBrain } from "react-icons/fa6";
 import CircularProgress from "./CircularProgress";
 
 const normalizeEmotion = (value = "") => String(value).trim().toLowerCase();
@@ -88,48 +80,7 @@ const isSameDay = (dateA, dateB) =>
   dateA.getMonth() === dateB.getMonth() &&
   dateA.getDate() === dateB.getDate();
 
-const WELLNESS_TASKS = [
-  {
-    id: "water",
-    icon: FaGlassWater,
-    title: "Water",
-    description: "Drink 2-3 liters of water daily."
-  },
-  {
-    id: "breathing",
-    icon: FaWind,
-    title: "Deep Breathing",
-    description: "Try a 2 minute breathing reset."
-  },
-  {
-    id: "stretching",
-    icon: FaHeartPulse,
-    title: "Stretching",
-    description: "Loosen your neck, shoulders, and back."
-  },
-  {
-    id: "walk",
-    icon: FaPersonWalking,
-    title: "Short Walk",
-    description: "Take a 10-15 minute walk for a reset."
-  },
-  {
-    id: "hydration-rhythm",
-    icon: FaDroplet,
-    title: "Hydration Rhythm",
-    description: "Sip water steadily instead of all at once."
-  },
-  {
-    id: "sleep",
-    icon: FaMoon,
-    title: "Sleep / Recovery",
-    description: "Reduce stimulation earlier in the evening."
-  }
-];
-
-function DailySummary({ messages = [] }) {
-  const [completedTasks, setCompletedTasks] = useState({});
-
+function DailySummary({ messages = [], showWellnessSummary = true }) {
   const summary = useMemo(() => {
     const today = new Date();
     const todaysBotMessages = messages.filter((message) => {
@@ -189,13 +140,6 @@ function DailySummary({ messages = [] }) {
       suggestion: getSuggestion(dominantEmotion)
     };
   }, [messages]);
-
-  const toggleTask = (taskId) => {
-    setCompletedTasks((current) => ({
-      ...current,
-      [taskId]: !current[taskId]
-    }));
-  };
 
   return (
     <div className="daily-summary-layout">
@@ -263,76 +207,38 @@ function DailySummary({ messages = [] }) {
         </div>
       </section>
 
-      <section className="summary-card">
-        <div className="summary-card-header">
-          <div>
-            <p className="summary-section-label">Suggestions</p>
-            <h3 className="summary-card-title">Wellness tracking</h3>
-            <p className="summary-card-copy">{summary.suggestion}</p>
+      {showWellnessSummary ? (
+        <section className="summary-card">
+          <div className="summary-card-header">
+            <div>
+              <p className="summary-section-label">Suggestions</p>
+              <h3 className="summary-card-title">Wellness tracking</h3>
+              <p className="summary-card-copy">{summary.suggestion}</p>
+            </div>
           </div>
-        </div>
 
-        <div className="wellness-rings-grid">
-          <CircularProgress
-            percentage={summary.hydrationLevel}
-            label="Hydration"
-            color="#18b8ff"
-            subtitle="Target: 2-3L daily"
-          />
-          <CircularProgress
-            percentage={summary.stressLevel}
-            label="Stress"
-            color="#ff7a59"
-            subtitle="Estimated from mood signals"
-          />
-          <CircularProgress
-            percentage={summary.sleepRecovery}
-            label="Recovery"
-            color="#8f7cff"
-            subtitle="Lower stress supports better rest"
-          />
-        </div>
-      </section>
-
-      <section className="summary-card">
-        <div className="summary-card-header">
-          <div>
-            <p className="summary-section-label">Wellness Tips</p>
-            <h3 className="summary-card-title">Daily reset checklist</h3>
+          <div className="wellness-rings-grid">
+            <CircularProgress
+              percentage={summary.hydrationLevel}
+              label="Hydration"
+              color="#18b8ff"
+              subtitle="Target: 2-3L daily"
+            />
+            <CircularProgress
+              percentage={summary.stressLevel}
+              label="Stress"
+              color="#ff7a59"
+              subtitle="Estimated from mood signals"
+            />
+            <CircularProgress
+              percentage={summary.sleepRecovery}
+              label="Recovery"
+              color="#8f7cff"
+              subtitle="Lower stress supports better rest"
+            />
           </div>
-        </div>
-
-        <div className="tips-grid">
-          {WELLNESS_TASKS.map((task) => {
-            const Icon = task.icon;
-            const isCompleted = Boolean(completedTasks[task.id]);
-
-            return (
-              <label
-                key={task.id}
-                className={`tip-item tip-item-checklist ${
-                  isCompleted ? "tip-item-completed" : ""
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="tip-checkbox"
-                  checked={isCompleted}
-                  onChange={() => toggleTask(task.id)}
-                />
-                <span className="tip-checkbox-custom" aria-hidden="true" />
-                <div className="tip-icon">
-                  <Icon />
-                </div>
-                <div className="tip-content">
-                  <h4 className="tip-title">{task.title}</h4>
-                  <p className="tip-copy">{task.description}</p>
-                </div>
-              </label>
-            );
-          })}
-        </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }
