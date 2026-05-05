@@ -2,6 +2,14 @@
 
 MindMate is a full-stack AI-driven mental wellness application designed to help users track emotions, build healthy habits, and gain personalized insights into their mental state. It combines real-time AI emotion analysis, journaling, and wellness tracking into a seamless user experience.
 
+## 🎥 Demo
+  
+
+https://github.com/user-attachments/assets/9466e08f-361b-4920-b473-7a8ce445112e
+
+
+
+
 ---
 
 # 🚀 Features
