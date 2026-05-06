@@ -1,32 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
-import {
-  BrowserRouter,
-  Link,
-  NavLink,
-  Route,
-  Routes
-} from "react-router-dom";
-import {
-  FaBookOpen,
-  FaBrain,
-  FaChartBar,
-  FaComments,
-  FaHeartPulse,
-  FaMoon,
-  FaPaperPlane,
-  FaSpinner,
-  FaStar,
-  FaSun
-} from "react-icons/fa6";
-import Dashboard from "./pages/Dashboard";
-import Journal from "./pages/Journal";
-import Wellness from "./pages/Wellness";
-import {
-  extractEmotionFromText,
-  formatEmotionLabel
-} from "./dashboardUtils";
-import "./App.css";
+import AppRoot from "./AppRoot";
+/*
 
 const getEmotionColor = (emotion = "") => {
   const normalized = String(emotion).trim().toLowerCase();
@@ -119,11 +92,14 @@ function ChatPage({
         )}
 
         {messages.map((msg, index) => (
-          <div
+          <motion.div
             key={index}
             className={`message-row ${
               msg.type === "user" ? "message-row-user" : "message-row-bot"
             }`}
+            initial={{ opacity: 0, y: 14, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.26, ease: "easeOut" }}
           >
             <div
               className={`message-bubble ${bubbleThemeClass} ${
@@ -148,14 +124,19 @@ function ChatPage({
 
               <div className="message-text">{msg.text}</div>
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {loading && (
-          <div className="message-row message-row-bot">
+          <motion.div
+            className="message-row message-row-bot"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <div
               className={`message-bubble ${bubbleThemeClass} message-bot loading-bubble`}
             >
+              <div className="analyzing-label">Analyzing...</div>
               <div
                 className="typing-indicator"
                 aria-label="MindMate is thinking"
@@ -165,7 +146,7 @@ function ChatPage({
                 <span />
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
         <div ref={messagesEndRef} />
@@ -181,18 +162,98 @@ function ChatPage({
           disabled={loading}
         />
 
-        <button
+        <motion.button
           onClick={sendMessage}
           className="send-button"
           type="button"
           disabled={loading || !input.trim()}
           aria-disabled={loading || !input.trim()}
           aria-label={loading ? "Analyzing message" : "Send message"}
+          whileHover={
+            loading || !input.trim()
+              ? undefined
+              : { scale: 1.04, boxShadow: "0 20px 44px rgba(99,102,241,0.36)" }
+          }
+          whileTap={loading || !input.trim() ? undefined : { scale: 0.94 }}
         >
           {loading ? <FaSpinner className="send-spinner" /> : <FaPaperPlane />}
-        </button>
+        </motion.button>
       </div>
     </section>
+  );
+}
+
+function RouteFrame({ children }) {
+  return (
+    <motion.div className="route-motion-shell" {...pageMotion}>
+      {children}
+    </motion.div>
+  );
+}
+
+function AnimatedRoutes({
+  messages,
+  input,
+  setInput,
+  loading,
+  sendMessage,
+  darkMode
+}) {
+  const location = useLocation();
+
+  return (
+    <Suspense
+      fallback={
+        <motion.div className="page-loader" {...pageMotion}>
+          <FaSpinner className="send-spinner" />
+          <span>Loading workspace...</span>
+        </motion.div>
+      }
+    >
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route
+            path="/"
+            element={
+              <RouteFrame>
+                <ChatPage
+                  messages={messages}
+                  input={input}
+                  setInput={setInput}
+                  loading={loading}
+                  sendMessage={sendMessage}
+                  darkMode={darkMode}
+                />
+              </RouteFrame>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RouteFrame>
+                <Dashboard messages={messages} darkMode={darkMode} />
+              </RouteFrame>
+            }
+          />
+          <Route
+            path="/wellness"
+            element={
+              <RouteFrame>
+                <Wellness />
+              </RouteFrame>
+            }
+          />
+          <Route
+            path="/journal"
+            element={
+              <RouteFrame>
+                <Journal />
+              </RouteFrame>
+            }
+          />
+        </Routes>
+      </AnimatePresence>
+    </Suspense>
   );
 }
 
@@ -280,14 +341,19 @@ function App() {
   return (
     <BrowserRouter>
       <div className={`app-shell ${themeClass}`}>
-        <aside className="sidebar">
+        <motion.aside
+          className="sidebar"
+          initial={{ opacity: 0, x: -18 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.38, ease: "easeOut" }}
+        >
           <div className="sidebar-top">
             <Link className="brand brand-link" to="/">
               <div className="brand-icon">
                 <FaBrain />
               </div>
               <div>
-                <h1 className="brand-title">MindMate</h1>
+          
                 <p className="brand-subtitle">Emotional wellness workspace</p>
               </div>
             </Link>
@@ -297,58 +363,54 @@ function App() {
                 const Icon = item.icon;
 
                 return (
-                  <NavLink
+                  <motion.div
                     key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) =>
-                      `sidebar-tab ${isActive ? "active" : ""}`
-                    }
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <Icon className="sidebar-tab-icon" />
-                    <span>{item.label}</span>
-                  </NavLink>
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) =>
+                        `sidebar-tab ${isActive ? "active" : ""}`
+                      }
+                    >
+                      <Icon className="sidebar-tab-icon" />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  </motion.div>
                 );
               })}
             </nav>
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={() => setDarkMode(!darkMode)}
             className="theme-toggle"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.96 }}
           >
             {darkMode ? <FaSun /> : <FaMoon />}
             <span>{darkMode ? "Light Mode" : "Dark Mode"}</span>
-          </button>
-        </aside>
+          </motion.button>
+        </motion.aside>
 
         <main className="main-panel">
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <ChatPage
-                  messages={messages}
-                  input={input}
-                  setInput={setInput}
-                  loading={loading}
-                  sendMessage={sendMessage}
-                  darkMode={darkMode}
-                />
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={<Dashboard messages={messages} darkMode={darkMode} />}
-            />
-            <Route path="/wellness" element={<Wellness />} />
-            <Route path="/journal" element={<Journal />} />
-          </Routes>
+          <AnimatedRoutes
+            messages={messages}
+            input={input}
+            setInput={setInput}
+            loading={loading}
+            sendMessage={sendMessage}
+            darkMode={darkMode}
+          />
         </main>
       </div>
     </BrowserRouter>
   );
 }
 
-export default App;
+*/
+
+export default AppRoot;

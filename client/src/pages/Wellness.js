@@ -3,14 +3,13 @@ import WellnessTracker from "../components/WellnessTracker";
 
 function Wellness() {
   return (
-    <section className="dashboard-panel page-panel">
-      <div className="panel-header">
+    <section className="page-shell">
+      <div className="page-header">
         <div>
-          <p className="eyebrow">Wellness Tracker</p>
-          <h2 className="panel-title">Daily Wellness</h2>
-          <p className="panel-description">
-            Track hydration, gentle movement, breathing, and the small routines
-            that support your day.
+          <p className="eyebrow">Wellness</p>
+          <h1 className="page-title">Daily habits</h1>
+          <p className="page-description">
+            Track hydration, routines, and simple wins with a cleaner weekly view.
           </p>
         </div>
       </div>

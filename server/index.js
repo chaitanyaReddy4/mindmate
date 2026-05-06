@@ -1,5 +1,5 @@
-require("dotenv").config();
-const express = require("express");
+require("./src/server");
+/* const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const mongoose = require("mongoose");
@@ -105,4 +105,4 @@ Suggestions (2 points):`
 // ✅ Start server (ONLY ONE)
 app.listen(5000, () => {
   console.log("Server running on port 5000");
-});
+}); */

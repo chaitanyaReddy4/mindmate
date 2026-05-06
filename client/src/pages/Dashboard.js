@@ -1,138 +1,308 @@
-import React, { useMemo } from "react";
-import DailySummary from "../DailySummary";
-import EmotionChart from "../EmotionChart";
-import EmotionGraph from "../components/EmotionGraph";
-import WeeklyTrends from "../components/WeeklyTrends";
+import React, { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { FaArrowTrendUp, FaBookOpen, FaDroplet, FaFilePdf } from "react-icons/fa6";
+import { apiClient } from "../api/apiClient";
 import {
+  buildInsightCards,
+  buildPrintableReport,
+  buildWeeklyWellnessSeries,
+  calculateStreak,
+  countWords,
+  formatDateLabel,
+  formatEmotionLabel,
   getEmotionBucket,
   getMessageEmotion,
   getStressScore
 } from "../dashboardUtils";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 
-function Dashboard({ messages = [], darkMode = true }) {
+function Dashboard({ messages = [] }) {
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const [journalEntries, setJournalEntries] = useState([]);
+  const [wellnessEntries, setWellnessEntries] = useState([]);
+
+  useEffect(() => {
+    const loadSupportingData = async () => {
+      try {
+        const [journalResponse, wellnessResponse] = await Promise.all([
+          apiClient.get("/journal"),
+          apiClient.get("/wellness", {
+            params: { range: "week" }
+          })
+        ]);
+
+        setJournalEntries(journalResponse.data.entries || []);
+        setWellnessEntries(wellnessResponse.data.entries || []);
+      } catch (_error) {
+        showToast({
+          title: "Some insights are unavailable",
+          message: "Dashboard history could not be fully loaded.",
+          variant: "error"
+        });
+      }
+    };
+
+    loadSupportingData();
+  }, [showToast]);
+
   const botMessages = useMemo(
     () => messages.filter((message) => message.type === "bot"),
     [messages]
   );
 
-  const dashboardStats = useMemo(() => {
-    const totalMessages = botMessages.length;
-    const emotionCounts = {};
-    let totalStressScore = 0;
+  const stats = useMemo(() => {
+    const stressScores = botMessages.map((message) =>
+      getStressScore(getMessageEmotion(message))
+    );
+    const buckets = botMessages.reduce((result, message) => {
+      const bucket = getEmotionBucket(getMessageEmotion(message));
+      result[bucket] = (result[bucket] || 0) + 1;
+      return result;
+    }, {});
 
-    botMessages.forEach((message) => {
-      const emotion = getMessageEmotion(message);
-      const bucket = getEmotionBucket(emotion);
-      emotionCounts[bucket] = (emotionCounts[bucket] || 0) + 1;
-      totalStressScore += getStressScore(emotion);
-    });
-
-    let mostFrequentEmotion = "No data yet";
-    let topCount = 0;
-
-    Object.entries(emotionCounts).forEach(([emotion, count]) => {
-      if (count > topCount) {
-        mostFrequentEmotion = emotion;
-        topCount = count;
-      }
-    });
-
-    const averageStressLevel = botMessages.length
-      ? `${Math.round(totalStressScore / botMessages.length)}%`
-      : "0%";
+    const topBucket =
+      Object.entries(buckets).sort((left, right) => right[1] - left[1])[0]?.[0] ||
+      "Neutral";
+    const journalStreak = calculateStreak(journalEntries.map((entry) => entry.date));
+    const weeklyWellness = buildWeeklyWellnessSeries(wellnessEntries);
+    const averageHydration = weeklyWellness.length
+      ? Math.round(
+          weeklyWellness.reduce((sum, entry) => sum + entry.hydrationPercent, 0) /
+            weeklyWellness.length
+        )
+      : 0;
 
     return {
-      totalMessages,
-      mostFrequentEmotion,
-      averageStressLevel
+      totalReplies: botMessages.length,
+      topMood: topBucket,
+      averageStress: stressScores.length
+        ? `${Math.round(
+            stressScores.reduce((sum, value) => sum + value, 0) / stressScores.length
+          )}%`
+        : "0%",
+      journalStreak,
+      averageHydration
     };
-  }, [botMessages]);
+  }, [botMessages, journalEntries, wellnessEntries]);
 
-  const stressComparison = useMemo(() => {
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
+  const weeklyWellness = useMemo(
+    () => buildWeeklyWellnessSeries(wellnessEntries),
+    [wellnessEntries]
+  );
 
-    const getAverageStressForDate = (targetDate) => {
-      const scores = botMessages
-        .filter((message) => {
-          const timestamp = new Date(message.time);
-          return (
-            !Number.isNaN(timestamp.getTime()) &&
-            timestamp.toDateString() === targetDate.toDateString()
-          );
-        })
-        .map((message) => getStressScore(getMessageEmotion(message)));
+  const insightCards = useMemo(
+    () => buildInsightCards({ messages, journalEntries, wellnessEntries }),
+    [journalEntries, messages, wellnessEntries]
+  );
 
-      if (!scores.length) {
-        return 0;
-      }
+  const emotionTimeline = useMemo(
+    () =>
+      botMessages.slice(-6).map((message) => ({
+        id: message.id,
+        date: formatDateLabel(message.time, {
+          month: "short",
+          day: "numeric"
+        }),
+        emotion: formatEmotionLabel(getMessageEmotion(message))
+      })),
+    [botMessages]
+  );
 
-      return Math.round(
-        scores.reduce((sum, score) => sum + score, 0) / scores.length
-      );
-    };
+  const exportReport = () => {
+    const printableWindow = window.open("", "_blank", "noopener,noreferrer");
 
-    const todayAverage = getAverageStressForDate(today);
-    const yesterdayAverage = getAverageStressForDate(yesterday);
-    const delta = todayAverage - yesterdayAverage;
+    if (!printableWindow) {
+      showToast({
+        title: "Export blocked",
+        message: "Please allow pop-ups to export your report.",
+        variant: "error"
+      });
+      return;
+    }
 
-    return {
-      todayAverage,
-      yesterdayAverage,
-      indicator: delta <= 0 ? "Improvement" : "Increase",
-      arrow: delta <= 0 ? "↓" : "↑"
-    };
-  }, [botMessages]);
+    printableWindow.document.write(
+      buildPrintableReport({
+        userName: user?.name,
+        journalEntries,
+        wellnessEntries,
+        messages,
+        insights: insightCards
+      })
+    );
+    printableWindow.document.close();
+    printableWindow.focus();
+    printableWindow.print();
+  };
 
   return (
-    <section className="dashboard-panel">
-      <div className="panel-header">
+    <section className="page-shell">
+      <div className="page-header">
         <div>
-          <p className="eyebrow">Analytics Overview</p>
-          <h2 className="panel-title panel-title-dashboard">
-            Emotional Insights
-          </h2>
-          <p className="panel-description">
-            A quick pulse on conversation volume, tone, and emotional load.
+          <p className="eyebrow">Overview</p>
+          <h1 className="page-title">
+            {user?.name ? `Welcome back, ${user.name.split(" ")[0]}` : "Dashboard"}
+          </h1>
+          <p className="page-description">
+            A steady weekly view of mood signals, emotional momentum, and wellness habits.
           </p>
         </div>
+
+        <button type="button" className="toolbar-button" onClick={exportReport}>
+          <FaFilePdf />
+          <span>Export PDF</span>
+        </button>
       </div>
 
-      <div className="kpi-grid kpi-grid-expanded">
-        <article className="kpi-card">
-          <span className="kpi-label">Total Messages</span>
-          <strong className="kpi-value">{dashboardStats.totalMessages}</strong>
+      <div className="kpi-grid">
+        <article className="stat-card">
+          <span className="stat-label">AI replies</span>
+          <strong className="stat-value">{stats.totalReplies}</strong>
         </article>
-        <article className="kpi-card">
-          <span className="kpi-label">Most Frequent Emotion</span>
-          <strong className="kpi-value">
-            {dashboardStats.mostFrequentEmotion}
-          </strong>
+        <article className="stat-card">
+          <span className="stat-label">Top mood</span>
+          <strong className="stat-value">{stats.topMood}</strong>
         </article>
-        <article className="kpi-card">
-          <span className="kpi-label">Average Stress Level</span>
-          <strong className="kpi-value">
-            {dashboardStats.averageStressLevel}
-          </strong>
+        <article className="stat-card">
+          <span className="stat-label">Average stress</span>
+          <strong className="stat-value">{stats.averageStress}</strong>
         </article>
-        <article className="kpi-card">
-          <span className="kpi-label">Stress Improvement</span>
-          <strong className="kpi-value">
-            {stressComparison.arrow} {stressComparison.indicator}
-          </strong>
-          <span className="kpi-meta">
-            Today {stressComparison.todayAverage}% vs yesterday{" "}
-            {stressComparison.yesterdayAverage}%
-          </span>
+        <article className="stat-card">
+          <span className="stat-label">Journal streak</span>
+          <strong className="stat-value">{stats.journalStreak} days</strong>
         </article>
       </div>
 
-      <div className="dashboard-content">
-        <DailySummary messages={messages} showWellnessSummary={false} />
-        <WeeklyTrends messages={messages} darkMode={darkMode} />
-        <EmotionGraph messages={messages} darkMode={darkMode} />
-        <EmotionChart messages={messages} darkMode={darkMode} />
+      <div className="dashboard-grid">
+        <section className="surface-card surface-card-large">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Weekly AI Wellness Insights</p>
+              <h2 className="section-title">Patterns worth noticing</h2>
+            </div>
+          </div>
+
+          <div className="insights-grid">
+            {insightCards.map((insight) => (
+              <article key={insight.id} className="insight-card">
+                <h3>{insight.title}</h3>
+                <p>{insight.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="surface-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Hydration</p>
+              <h2 className="section-title">Weekly wellness analytics</h2>
+            </div>
+            <span className="section-badge">{stats.averageHydration}% average</span>
+          </div>
+
+          <div className="trend-list">
+            {weeklyWellness.map((entry) => (
+              <div key={entry.date} className="trend-row">
+                <div className="trend-row-head">
+                  <strong>{entry.dayLabel}</strong>
+                  <span>{entry.waterMl}ml</span>
+                </div>
+                <div className="trend-bar">
+                  <motion.span
+                    className="trend-fill"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${entry.hydrationPercent}%` }}
+                  />
+                </div>
+                <small>{entry.completedTasks} wellness tasks completed</small>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="surface-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Journaling</p>
+              <h2 className="section-title">Recent reflection depth</h2>
+            </div>
+            <FaBookOpen className="section-icon" />
+          </div>
+
+          <div className="timeline-list">
+            {journalEntries.length ? (
+              journalEntries.slice(0, 5).map((entry) => (
+                <div key={entry.id} className="timeline-item">
+                  <strong>
+                    {formatDateLabel(entry.date)}
+                    {entry.moodTag ? ` - ${entry.moodTag}` : ""}
+                  </strong>
+                  <span>{countWords(entry.content)} words</span>
+                </div>
+              ))
+            ) : (
+              <p className="muted-copy">Your saved reflections will appear here.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="surface-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Emotional timeline</p>
+              <h2 className="section-title">Recent assistant patterns</h2>
+            </div>
+            <FaArrowTrendUp className="section-icon" />
+          </div>
+
+          <div className="timeline-list">
+            {emotionTimeline.length ? (
+              emotionTimeline.map((item) => (
+                <div key={item.id} className="timeline-item">
+                  <strong>{item.emotion}</strong>
+                  <span>{item.date}</span>
+                </div>
+              ))
+            ) : (
+              <p className="muted-copy">Recent AI mood insights will appear after more chats.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="surface-card">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Consistency</p>
+              <h2 className="section-title">Habit momentum</h2>
+            </div>
+            <FaDroplet className="section-icon" />
+          </div>
+
+          <div className="ring-grid">
+            <article className="mini-ring-card">
+              <div
+                className="progress-ring"
+                style={{ "--progress": `${stats.averageHydration}%` }}
+              >
+                <span>{stats.averageHydration}%</span>
+              </div>
+              <p>Hydration target average</p>
+            </article>
+            <article className="mini-ring-card">
+              <div
+                className="progress-ring"
+                style={{
+                  "--progress": `${Math.min(100, stats.journalStreak * 20)}%`
+                }}
+              >
+                <span>{stats.journalStreak}</span>
+              </div>
+              <p>Current journal streak</p>
+            </article>
+          </div>
+        </section>
       </div>
     </section>
   );

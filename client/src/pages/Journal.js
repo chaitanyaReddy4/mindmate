@@ -3,14 +3,13 @@ import JournalSection from "../components/JournalSection";
 
 function Journal() {
   return (
-    <section className="dashboard-panel page-panel">
-      <div className="panel-header">
+    <section className="page-shell">
+      <div className="page-header">
         <div>
-          <p className="eyebrow">Daily Reflection</p>
-          <h2 className="panel-title">Journal</h2>
-          <p className="panel-description">
-            Save a dated reflection for today and revisit previous entries when
-            you want a little perspective.
+          <p className="eyebrow">Journal</p>
+          <h1 className="page-title">Private reflections</h1>
+          <p className="page-description">
+            A calmer space for daily writing, mood tagging, and steady journaling habits.
           </p>
         </div>
       </div>
