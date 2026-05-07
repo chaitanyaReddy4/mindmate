@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "https://mindmate-0ee2.onrender.com";
 const ACCESS_TOKEN_KEY = "mindmate_access_token";
 const AUTH_MODE_KEY = "mindmate_auth_mode";
 
